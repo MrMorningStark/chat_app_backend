@@ -20,4 +20,8 @@ app.use(express.urlencoded({ extended: true }))
 
 app.use("/data", dataRouter)
 
+app.get('/', (req, res) => {
+    res.status(200).json({ success: true, data: "Chat App Backend", message: "Welcome" })
+})
+
 module.exports = app;
