@@ -74,7 +74,10 @@ const usersExist = async (req, res) => {
             user.phoneNumber = user.phoneNumber.replace('+91', '').trim();
             let response = await mongoDb().collection(COLLECTION_NAME.USERS).findOne({ phoneNumber: user.phoneNumber.toString() })
             if (response) {
-                user = response;
+                user.displayName = response.displayName;
+                user.photoURL = response.photoURL;
+                user.email = response.email;
+                user.uid = response.uid;
                 user.isUserExist = true;
             }
             else {
