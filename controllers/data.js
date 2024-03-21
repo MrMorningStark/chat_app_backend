@@ -63,8 +63,37 @@ const searchUser = async (req, res) => {
     }
 };
 
+const usersExist = async (req, res) => {
+    try {
+        const { users } = req.body;
+
+        const updatedUsersList = [];
+
+        for (let i = 0; i < users.length; i++) {
+            let user = users[i];
+            user.phoneNumber = user.phoneNumber.replace('+91', '').trim();
+            let response = await mongoDb().collection(COLLECTION_NAME.USERS).findOne({ phoneNumber: user.phoneNumber.toString() })
+            if (response) {
+                user = response;
+                user.isUserExist = true;
+            }
+            else {
+                user.isUserExist = false;
+            }
+
+            updatedUsersList.push(user);
+
+        }
+
+        res.status(200).json({ success: true, data: updatedUsersList, message: null });
+    } catch (error) {
+        res.status(500).json({ success: false, data: null, message: error.message });
+    }
+
+}
 
 module.exports = {
     saveData,
-    searchUser
+    searchUser,
+    usersExist
 }
