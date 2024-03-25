@@ -1,6 +1,6 @@
 const { SOCKET_ON } = require("./constant");
 
-const activeChatRooms = [];
+const activeChatRooms = {};
 
 const socket = () => {
     global.io.on('connection', (socket) => {
@@ -8,10 +8,14 @@ const socket = () => {
         socket.on(SOCKET_ON.INITIATE_CHAT, (roomId) => {
             console.log('s')
             console.log("initiate chat", roomId)
-            if (!activeChatRooms.includes(roomId)) {
-                activeChatRooms.push(roomId);
+            // if (!activeChatRooms.includes(roomId)) {
+            //     activeChatRooms.push(roomId);
+            // }
+            if (!activeChatRooms[roomId]) {
+                activeChatRooms[roomId] = 1;
+            } else {
+                activeChatRooms[roomId] = activeChatRooms[roomId] + 1
             }
-
             // Join the room
             socket.join(roomId);
             socket.to(roomId).emit(SOCKET_ON.CHAT_INITIATED, roomId);
@@ -21,16 +25,20 @@ const socket = () => {
         socket.on(SOCKET_ON.SEND_MESSAGE, ({ roomID, user, message }) => {
             // Broadcast the message to all clients in the room
             console.log("message => ", message)
-            socket.to(roomID).emit(SOCKET_ON.RECEIVE_MESSAGE, { roomID, user, message });
+            socket.to(roomID).emit(SOCKET_ON.RECEIVE_MESSAGE, { roomID, user, message, isOnline: activeChatRooms[roomID] > 1 ? true : false });
         });
 
         // Handler for leaving the chat room
         socket.on(SOCKET_ON.LEAVE_CHAT, ({ roomId }) => {
             // Leave the room
             socket.leave(roomId);
-
             // Remove the room from the activeRooms object
-            delete activeChatRooms[roomId];
+            // delete activeChatRooms[roomId];
+            if (activeChatRooms[roomId] > 0) {
+                activeChatRooms[roomId] = activeChatRooms[roomId] - 1
+            } else {
+                delete activeChatRooms[roomId];
+            }
 
             // Notify other users in the room that a user has left
             socket.to(roomId).emit('user_left', { roomId });
