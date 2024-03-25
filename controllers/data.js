@@ -36,8 +36,9 @@ const saveData = async (req, res) => {
 const searchUser = async (req, res) => {
     try {
         const searchKey = req.params.searchKey;
+        const uid = req.body.uid;
 
-        if (searchKey == undefined) {
+        if (searchKey == undefined || uid == undefined) {
             return res
                 .status(400)
                 .json({ success: false, message: `Invalid data passed` });
@@ -48,7 +49,8 @@ const searchUser = async (req, res) => {
                 $or: [
                     { displayName: { $regex: "^" + searchKey, $options: "i" } },
                     { email: { $regex: "^" + searchKey, $options: "i" } },
-                ]
+                ],
+                uid: { $ne: uid }
             }
         ).toArray();
 
