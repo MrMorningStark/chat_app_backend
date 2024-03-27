@@ -1,7 +1,12 @@
 const app = require('./app');
 const { socket } = require('./socket');
 
-const https = require('https').createServer(app)
+const options = {
+    key: process.env.keypem,
+    cert: process.env.certpem,
+};
+
+const https = require('https').createServer(options, app)
 
 const PORT = process.env.API_PORT || 3000
 
