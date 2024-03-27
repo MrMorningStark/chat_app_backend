@@ -9,6 +9,7 @@ const SOCKET_ON = Object.freeze({
     JOIN_ROOM: "joinRoom",
     SEND_MESSAGE: "sendMessage",
     RECEIVE_MESSAGE: "receiveMessage",
+    MESSAGE_RECEIVED: "messageReceived",
     USER_ONLINE: "userOnline",
     USER_OFFLINE: "userOffline",
     USER_TYPING: "userTyping",
