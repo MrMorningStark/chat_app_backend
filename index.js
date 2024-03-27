@@ -5,7 +5,7 @@ const https = require('https').createServer(app)
 
 const PORT = process.env.API_PORT || 3000
 
-const io = require('socket.io')(http, {
+const io = require('socket.io')(https, {
     cors: {
         origin: '*'
     }
