@@ -1,9 +1,10 @@
+const fs = require('fs');
 const app = require('./app');
 const { socket } = require('./socket');
 
 const options = {
-    key: process.env.keypem,
-    cert: process.env.certpem,
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem'),
 };
 
 const https = require('https').createServer(options, app)
