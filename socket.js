@@ -1,59 +1,61 @@
-const { SOCKET_ON } = require("./constant");
+const { Server } = require("socket.io");
+const { SOCKET_EVENTS, REDIS_CHANNELS } = require("./constant");
+const { Redis } = require("ioredis");
 
-const activeChatRooms = {};
+const pub = new Redis(
+    {
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT,
+        username: process.env.REDIS_USERNAME,
+        password: process.env.REDIS_PASSWORD,
+    }
+);
+const sub = new Redis(
+    {
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT,
+        username: process.env.REDIS_USERNAME,
+        password: process.env.REDIS_PASSWORD,
+    }
+);
 
-const socket = () => {
-    global.io.on('connection', (socket) => {
+class SocketSerice {
+    #io;
+    constructor() {
+        console.log("Init socket service...");
+        this.#io = new Server();
+        sub.subscribe(REDIS_CHANNELS.MESSAGES);
+    }
 
-        socket.on(SOCKET_ON.INITIATE_CHAT, (roomId) => {
-            console.log('s')
-            console.log("initiate chat", roomId)
-            // if (!activeChatRooms.includes(roomId)) {
-            //     activeChatRooms.push(roomId);
-            // }
-            if (!activeChatRooms[roomId]) {
-                activeChatRooms[roomId] = 1;
-            } else {
-                activeChatRooms[roomId] = 2
+    initListeners() {
+        const io = this.#io;
+        console.log('Init socket listeners...');
+        io.on(SOCKET_EVENTS.CONNECT, socket => {
+            console.log('New socket connected', socket.id);
+
+            socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
+                console.log('new message received', data.message);
+                await pub.publish(REDIS_CHANNELS.MESSAGES, JSON.stringify(data));
+            })
+
+            socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+                console.log('Socket disconnected', socket.id);
+            });
+
+        });
+
+        sub.on('message', async (channel, message) => {
+            if (channel === REDIS_CHANNELS.MESSAGES) {
+                console.log('sending message', message);
+                const data = JSON.parse(message);
+                io.emit(SOCKET_EVENTS.RECEIVE_MESSAGE, data);
             }
-            // Join the room
-            socket.join(roomId);
-            socket.to(roomId).emit(SOCKET_ON.CHAT_INITIATED, roomId);
-
         });
+    }
 
-        socket.on(SOCKET_ON.MESSAGE_RECEIVED, ({ roomID, user, status }) => {
-            // Broadcast the message to all clients in the room
-            console.log("message RECIEVED => ", roomID)
-            socket.to(roomID).emit(SOCKET_ON.MESSAGE_RECEIVED, { roomID, user, status });
-        });
-
-        socket.on(SOCKET_ON.SEND_MESSAGE, ({ roomID, user, message, unReadMessages }) => {
-            // Broadcast the message to all clients in the room
-            console.log(roomID)
-            console.log("message => ", message)
-            socket.to(roomID).emit(SOCKET_ON.RECEIVE_MESSAGE, { roomID, user, message, unReadMessages, isOnline: activeChatRooms[roomID] == 2 });
-        });
-
-        // Handler for leaving the chat room
-        socket.on(SOCKET_ON.LEAVE_CHAT, ({ roomId }) => {
-
-            // Remove the room from the activeRooms object
-            // delete activeChatRooms[roomId];
-            if (activeChatRooms[roomId] == 2) {
-                activeChatRooms[roomId] = 1
-            } else {
-                delete activeChatRooms[roomId];
-            }
-            socket.leave(roomId);
-
-            // Notify other users in the room that a user has left
-            socket.to(roomId).emit('user_left', { roomId });
-        });
-
-    })
+    get io() {
+        return this.#io;
+    }
 }
 
-
-
-module.exports = { socket };
+module.exports = SocketSerice;
