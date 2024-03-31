@@ -1,6 +1,6 @@
 const app = require('./app');
 const http = require('http');
-const SocketSerice = require('./socket');
+const SocketSerice = require('./services/socket');
 
 const PORT = process.env.API_PORT || 3000
 async function init() {
@@ -14,8 +14,6 @@ async function init() {
     httpServer.listen(PORT, () => {
         console.log(`server is running on ${PORT}`);
     });
-
-    socketService.initListeners();
 
 }
 

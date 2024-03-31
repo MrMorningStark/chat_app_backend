@@ -1,5 +1,9 @@
 const COLLECTION_NAME = {
     USERS: "users",
+    CHATS: "chats",
+    MESSAGES: "messages",
+    ROOMS: "rooms",
+    CONVERSATIONS: "conversations",
 }
 
 const SOCKET_EVENTS = Object.freeze({
@@ -23,6 +27,10 @@ const REDIS_CHANNELS = Object.freeze({
     MESSAGES: "messages",
 })
 
+const KAFKA_TOPICS = Object.freeze({
+    MESSAGES: "messages",
+})
+
 module.exports = {
-    COLLECTION_NAME, SOCKET_EVENTS, REDIS_CHANNELS
+    COLLECTION_NAME, SOCKET_EVENTS, REDIS_CHANNELS, KAFKA_TOPICS
 }
