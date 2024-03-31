@@ -4,6 +4,7 @@ const fs = require('fs');
 
 const { Kafka, Partitioners } = require('kafkajs');
 const { save, saveConversation } = require('../helper/database_helper');
+const { generateConversationId } = require('../helper/helper');
 
 const kafka = new Kafka({
     brokers: [process.env.KAFKA_BROKER],
@@ -65,16 +66,18 @@ async function startMessageConsumer() {
             try {
                 // toUID | fromUID | message | createdAt
                 let parseMessage = JSON.parse(message.value.toString());
-                await saveConversation(
-                    generateConversationId(parseMessage.fromUID, parseMessage.toUID), {
+                let conversationId = generateConversationId(parseMessage.fromUID, parseMessage.toUID);
+                let saveData = {
                     message: parseMessage.message,
                     createdAt: parseMessage.createdAt,
                     createdBy: parseMessage.fromUID,
-                }
+                };
+                await saveConversation(
+                    conversationId, saveData
                 );
                 console.log('Successfully saved message to db');
             } catch (error) {
-                console.log('Something went wrong while saving message to db');
+                console.log('Something went wrong while saving message to db ' + error.message);
                 pause();
                 setTimeout(() => {
                     consumer.resume([{ topic: KAFKA_TOPICS.MESSAGES }]);

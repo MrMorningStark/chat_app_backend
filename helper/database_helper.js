@@ -46,19 +46,13 @@ async function save(collectionName, data) {
 
 async function saveConversation(conversationId, message) {
   try {
-    // append message to conversation
-    let res = await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
-      { _id: ObjectId(conversationId) },
+    await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
+      { _id: conversationId },
       { $push: { conversation: message } },
       { upsert: true },
     );
-    return res;
   } catch (error) {
-    return {
-      success: false,
-      data: null,
-      message: error.message,
-    };
+    console.log('error while saving message to db', error.message);
   }
 }
 

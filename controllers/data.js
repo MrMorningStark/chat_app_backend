@@ -1,3 +1,4 @@
+const { ObjectId } = require("mongodb");
 const { COLLECTION_NAME } = require("../constant");
 const { mongoDb } = require("../db/mongoDb");
 const { saveEntities, save } = require("../helper/database_helper");
@@ -100,13 +101,18 @@ const usersExist = async (req, res) => {
 const loadConversation = async (req, res) => {
     try {
         const conversationId = req.params.conversationId;
-        const response = await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).findOne({ _id: ObjectId(conversationId) });
+        if (conversationId == undefined) {
+            return res
+                .status(400)
+                .json({ success: false, message: `Invalid data passed` });
+        }
+        const response = await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).findOne({ _id: conversationId });
         if (response) {
             // Document found
             res.status(200).json({ success: true, data: response, message: null });
         } else {
             // Document not found
-            res.status(404).json({ success: true, data: { _id: conversationId, message: [] }, message: 'Conversation not found' });
+            res.status(200).json({ success: true, data: { _id: conversationId, message: [] }, message: 'Conversation not found' });
         }
     } catch (error) {
         res.status(500).json({ success: false, data: null, message: error.message });
