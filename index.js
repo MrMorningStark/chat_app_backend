@@ -1,21 +1,22 @@
 const app = require('./app');
-const { socket } = require('./socket');
-
-const http = require('http').createServer(app)
+const http = require('http');
+const SocketSerice = require('./socket');
 
 const PORT = process.env.API_PORT || 3000
+async function init() {
+    const socketService = new SocketSerice();
 
-const io = require('socket.io')(http, {
-    cors: {
-        origin: '*'
-    }
-});
+    const httpServer = http.createServer(app);
 
-global.io = io;
+    socketService.io.attach(httpServer);
 
-socket();
 
-http.listen(PORT, () => {
-    console.log(`server is running on ${PORT}`);
-    // console.log(process.env);
-});
+    httpServer.listen(PORT, () => {
+        console.log(`server is running on ${PORT}`);
+    });
+
+    socketService.initListeners();
+
+}
+
+init();

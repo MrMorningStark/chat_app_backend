@@ -2,7 +2,9 @@ const COLLECTION_NAME = {
     USERS: "users",
 }
 
-const SOCKET_ON = Object.freeze({
+const SOCKET_EVENTS = Object.freeze({
+    CONNECT: 'connect',
+    DISCONNECT: 'disconnect',
     INITIATE_CHAT: "initiateChat",
     CHAT_INITIATED: "chatInitiated",
     LEAVE_CHAT: "leaveChat",
@@ -15,8 +17,12 @@ const SOCKET_ON = Object.freeze({
     USER_TYPING: "userTyping",
     USER_STOP_TYPING: "userStopTyping",
     USER_INACTIVE: "userInactive",
+});
+
+const REDIS_CHANNELS = Object.freeze({
+    MESSAGES: "messages",
 })
 
 module.exports = {
-    COLLECTION_NAME, SOCKET_ON
+    COLLECTION_NAME, SOCKET_EVENTS, REDIS_CHANNELS
 }
