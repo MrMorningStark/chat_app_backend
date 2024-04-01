@@ -72,8 +72,14 @@ async function startMessageConsumer() {
                     createdAt: parseMessage.createdAt,
                     createdBy: parseMessage.fromUID,
                 };
+                let lastMessage = {
+                    message: parseMessage.message,
+                    createdAt: parseMessage.createdAt,
+                    createdBy: parseMessage.fromUID,
+                    createdFor: parseMessage.toUID,
+                }
                 await saveConversation(
-                    conversationId, saveData
+                    conversationId, saveData, lastMessage
                 );
                 console.log('Successfully saved message to db');
             } catch (error) {

@@ -1,7 +1,6 @@
-const { ObjectId } = require("mongodb");
 const { COLLECTION_NAME } = require("../constant");
 const { mongoDb } = require("../db/mongoDb");
-const { saveEntities, save } = require("../helper/database_helper");
+const { saveEntities, save, getRecentChats } = require("../helper/database_helper");
 
 const saveData = async (req, res) => {
     try {
@@ -119,9 +118,20 @@ const loadConversation = async (req, res) => {
     }
 }
 
+const loadRecentChats = async (req, res) => {
+    try {
+        const userUID = req.params.userUID;
+        const data = await getRecentChats(userUID);
+        res.status(200).json({ success: true, data: data, message: null });
+    } catch (error) {
+        res.status(500).json({ success: false, data: null, message: error.message });
+    }
+}
+
 module.exports = {
     saveData,
     searchUser,
     usersExist,
     loadConversation,
+    loadRecentChats
 }

@@ -44,11 +44,11 @@ async function save(collectionName, data) {
 
 }
 
-async function saveConversation(conversationId, message) {
+async function saveConversation(conversationId, message, lastMessage) {
   try {
     await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
       { _id: conversationId },
-      { $push: { conversation: message } },
+      { $push: { conversation: message }, $set: { lastMessage: lastMessage, createdAt: lastMessage.createdAt } },
       { upsert: true },
     );
   } catch (error) {
@@ -56,8 +56,29 @@ async function saveConversation(conversationId, message) {
   }
 }
 
+async function getRecentChats(userUID) {
+  let response = await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).find(
+    {
+      $or: [
+        { "lastMessage.createdBy": userUID },
+        { "lastMessage.createdFor": userUID }
+      ]
+    }
+  ).sort({ createdAt: -1 }).project({ lastMessage: 1, _id: 0 }).toArray();
+  // now for each conversation we need to get user details from users collection
+  response = await Promise.all(response.map(async (conversation) => {
+    const createdBy = conversation.lastMessage.createdBy;
+    const createdFor = conversation.lastMessage.createdFor;
+    let otherUserId = createdBy == userUID ? createdFor : createdBy;
+    let userDetails = await mongoDb().collection(COLLECTION_NAME.USERS).findOne({ uid: otherUserId });
+    return { ...userDetails, lastMessage: conversation.lastMessage };
+  }));
+  return response;
+}
+
 module.exports = {
   saveEntities,
   save,
-  saveConversation
+  saveConversation,
+  getRecentChats
 }
