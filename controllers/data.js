@@ -111,7 +111,7 @@ const loadConversation = async (req, res) => {
             res.status(200).json({ success: true, data: response, message: null });
         } else {
             // Document not found
-            res.status(200).json({ success: true, data: { _id: conversationId, message: [] }, message: 'Conversation not found' });
+            res.status(200).json({ success: true, data: { _id: conversationId, conversation: [], createdAt: Date.now(), lastMessage: null }, message: 'Conversation not found' });
         }
     } catch (error) {
         res.status(500).json({ success: false, data: null, message: error.message });

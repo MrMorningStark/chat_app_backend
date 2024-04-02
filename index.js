@@ -9,7 +9,7 @@ async function init() {
     const httpServer = http.createServer(app);
 
     socketService.io.attach(httpServer);
-
+    console.log('socket listening...');
 
     httpServer.listen(PORT, () => {
         console.log(`server is running on ${PORT}`);

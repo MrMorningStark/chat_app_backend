@@ -1,12 +1,14 @@
 const { Server } = require("socket.io");
-const { SOCKET_EVENTS, REDIS_CHANNELS } = require("../constant");
+const { SOCKET_EVENTS, REDIS_CHANNELS, MessageStatus } = require("../constant");
 const { Redis } = require("ioredis");
-const { produceMessage, startMessageConsumer } = require("./kafka");
+const { produceMessage, startMessageConsumer, updateMessageStatus } = require("./kafka");
+const { generateConversationId } = require("../helper/helper");
 
 class SocketSerice {
     #io;
     #pub = undefined;
     #sub = undefined;
+    #cacheStorage = {};
     constructor() {
         console.log("Init Redis and socket service...");
         this.#io = new Server();
@@ -32,9 +34,13 @@ class SocketSerice {
 
             console.log("Redis connections established.");
         } catch (error) {
-            console.error("Error connecting to Redis:", error);
+            console.error("Error connecting to Redis:", error.message);
         } finally {
-            this.#initListeners();
+            try {
+                this.#initListeners();
+            } catch (error) {
+                console.log(error.message);
+            }
         }
     }
 
@@ -45,15 +51,34 @@ class SocketSerice {
         }
         startMessageConsumer();
         this.#sub.subscribe(REDIS_CHANNELS.MESSAGES);
+        this.#sub.subscribe(REDIS_CHANNELS.USER_STATUS);
+        this.#sub.subscribe(REDIS_CHANNELS.MESSAGE_STATUS);
+
         const io = this.#io;
+
         console.log('Init socket listeners...');
         io.on(SOCKET_EVENTS.CONNECT, socket => {
             console.log('New socket connected', socket.id);
+
+            socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
+                // uid | online    
+                console.log('online')
+                let status = {
+                    uid: data.uid,
+                    online: data.online,
+                }
+                await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
+            });
 
             socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
                 // toUID | fromUID | message | createdAt
                 console.log('new message received', data.message);
                 await this.#pub.publish(REDIS_CHANNELS.MESSAGES, JSON.stringify(data));
+            })
+
+            socket.on(SOCKET_EVENTS.MESSAGE_STATUS, async (data) => {
+                // toUID | conversationId | status
+                await this.#pub.publish(REDIS_CHANNELS.MESSAGE_STATUS, JSON.stringify(data));
             })
 
             socket.on(SOCKET_EVENTS.DISCONNECT, () => {
@@ -63,15 +88,47 @@ class SocketSerice {
         });
 
         this.#sub.on('message', async (channel, message) => {
-            if (channel === REDIS_CHANNELS.MESSAGES) {
-                // toUID | fromUID | message | createdAt
-                let parseMessage = JSON.parse(message);
-                io.emit(parseMessage.toUID, parseMessage);
-                await produceMessage(message);
+            console.log(channel);
+            switch (channel) {
+                case REDIS_CHANNELS.MESSAGES:
+                    // toUID | fromUID | message | createdAt | status
+                    let parseMessage = await JSON.parse(message);
+                    if (this.#isUserOnline(parseMessage.toUID)) {
+                        parseMessage.status = MessageStatus.delivered;
+                        io.emit('statusUpdate-' + parseMessage.fromUID, { conversationId: generateConversationId(parseMessage.fromUID, parseMessage.toUID), status: MessageStatus.delivered });
+                    }
+                    io.emit(parseMessage.toUID, parseMessage);
+                    await produceMessage(JSON.stringify(parseMessage));
+                    break;
+
+                case REDIS_CHANNELS.USER_STATUS:
+                    // uid | online
+                    let status = await JSON.parse(message);
+                    this.#cacheStorage[status.uid] = status.online;
+                    console.log(this.#cacheStorage);
+                    break;
+
+                case REDIS_CHANNELS.MESSAGE_STATUS:
+                    // toUID | conversationId | status
+                    let messageStatus = await JSON.parse(message);
+                    if (this.#isUserOnline(messageStatus.toUID)) {
+                        io.emit('statusUpdate-' + messageStatus.toUID, { conversationId: messageStatus.conversationId, status: messageStatus.status });
+                    }
+                    await updateMessageStatus(JSON.stringify(messageStatus));
+                    break;
+
+                default:
+                    break;
             }
         });
     }
 
+    #isUserOnline(uid) {
+        if (this.#cacheStorage[uid] === undefined) {
+            return false;
+        }
+        return this.#cacheStorage[uid];
+    }
     get io() {
         return this.#io;
     }

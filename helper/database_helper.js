@@ -1,6 +1,6 @@
 const { ObjectId } = require("mongodb");
 const { mongoDb, getMongodbQuery } = require("../db/mongoDb");
-const { COLLECTION_NAME } = require("../constant");
+const { COLLECTION_NAME, MessageStatus } = require("../constant");
 
 async function saveEntities(collectionName, dataList) {
   let responseData = [];
@@ -48,9 +48,45 @@ async function saveConversation(conversationId, message, lastMessage) {
   try {
     await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
       { _id: conversationId },
-      { $push: { conversation: message }, $set: { lastMessage: lastMessage, createdAt: lastMessage.createdAt } },
+      {
+        $push: {
+          conversation: {
+            $each: [message],
+            $position: 0
+          }
+        }, $set: { lastMessage: lastMessage, createdAt: lastMessage.createdAt }
+      },
       { upsert: true },
     );
+    if (message.status == MessageStatus.delivered || message.status == MessageStatus.read) {
+      // mark all status as delivered
+      let arrayFilters = [];
+      if (message.status == MessageStatus.delivered) {
+        arrayFilters = [
+          {
+            $and: [
+              { "elem.status": { $ne: MessageStatus.delivered } },
+              { "elem.status": { $ne: MessageStatus.read } }
+            ]
+          }
+        ]
+      } else {
+        arrayFilters = [
+          {
+            $and: [
+              { "elem.status": { $ne: MessageStatus.read } }
+            ]
+          }
+        ]
+      }
+      await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
+        { _id: conversationId },
+        { $set: { "conversation.$[elem].status": message.status } },
+        {
+          arrayFilters: arrayFilters
+        }
+      );
+    }
   } catch (error) {
     console.log('error while saving message to db', error.message);
   }
@@ -76,9 +112,44 @@ async function getRecentChats(userUID) {
   return response;
 }
 
+async function updateStatus(conversationId, status) {
+  try {
+    // update all message status
+    let arrayFilters = [];
+    if (status == MessageStatus.delivered) {
+      arrayFilters = [
+        {
+          $and: [
+            { "elem.status": { $ne: MessageStatus.delivered } },
+            { "elem.status": { $ne: MessageStatus.read } }
+          ]
+        }
+      ]
+    } else {
+      arrayFilters = [
+        {
+          $and: [
+            { "elem.status": { $ne: MessageStatus.read } }
+          ]
+        }
+      ]
+    }
+    await mongoDb().collection(COLLECTION_NAME.CONVERSATIONS).updateOne(
+      { _id: conversationId },
+      { $set: { "conversation.$[elem].status": status } },
+      {
+        arrayFilters: arrayFilters
+      }
+    );
+  } catch (error) {
+    console.log('error while saving message to db', error.message);
+  }
+}
+
 module.exports = {
   saveEntities,
   save,
   saveConversation,
-  getRecentChats
+  getRecentChats,
+  updateStatus
 }

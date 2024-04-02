@@ -1,9 +1,9 @@
 const path = require('path');
-const { KAFKA_TOPICS, COLLECTION_NAME } = require('../constant');
+const { KAFKA_TOPICS } = require('../constant');
 const fs = require('fs');
 
-const { Kafka, Partitioners } = require('kafkajs');
-const { save, saveConversation } = require('../helper/database_helper');
+const { Kafka } = require('kafkajs');
+const { saveConversation, updateStatus } = require('../helper/database_helper');
 const { generateConversationId } = require('../helper/helper');
 
 const kafka = new Kafka({
@@ -50,40 +50,77 @@ async function produceMessage(message) {
 
 }
 
+async function updateMessageStatus(message) {
+    try {
+        const producer = await createProducer();
+        await producer.send({
+            topic: KAFKA_TOPICS.MESSAGE_STATUS,
+            messages: [
+                {
+                    key: `message-${Date.now()}`,
+                    value: message
+                }
+            ]
+        });
+        console.log('Successfully sent updated Message Status to kafka');
+        return true;
+    } catch (error) {
+        console.log('Failed to send update Message Status to kafka');
+        return false;
+    }
+
+}
+
 async function startMessageConsumer() {
     console.log('Init kafka consumer...');
     const consumer = kafka.consumer({ groupId: "default" });
     await consumer.connect();
-    await consumer.subscribe({ topic: KAFKA_TOPICS.MESSAGES, fromBeginning: true });
+    await consumer.subscribe({ topics: [KAFKA_TOPICS.MESSAGES, KAFKA_TOPICS.MESSAGE_STATUS], fromBeginning: true });
 
     console.log('kafka consumer started...');
 
     await consumer.run({
         autoCommit: true,
-        eachMessage: async ({ message, pause }) => {
+        eachMessage: async ({ topic, message, pause }) => {
+            console.log(topic)
             if (!message.value) return;
             console.log("new mssg recieved to kafka consumer");
             try {
-                // toUID | fromUID | message | createdAt
-                let parseMessage = JSON.parse(message.value.toString());
-                let conversationId = generateConversationId(parseMessage.fromUID, parseMessage.toUID);
-                let saveData = {
-                    message: parseMessage.message,
-                    createdAt: parseMessage.createdAt,
-                    createdBy: parseMessage.fromUID,
-                };
-                let lastMessage = {
-                    message: parseMessage.message,
-                    createdAt: parseMessage.createdAt,
-                    createdBy: parseMessage.fromUID,
-                    createdFor: parseMessage.toUID,
+                let parseMessage = await JSON.parse(message.value.toString());
+                switch (topic) {
+                    case KAFKA_TOPICS.MESSAGES:
+                        // toUID | fromUID | message | createdAt | status
+                        let conversationId = generateConversationId(parseMessage.fromUID, parseMessage.toUID);
+                        let saveData = {
+                            message: parseMessage.message,
+                            createdAt: parseMessage.createdAt,
+                            createdBy: parseMessage.fromUID,
+                            createdFor: parseMessage.toUID,
+                            status: parseMessage.status
+                        };
+                        let lastMessage = {
+                            message: parseMessage.message,
+                            createdAt: parseMessage.createdAt,
+                            createdBy: parseMessage.fromUID,
+                            createdFor: parseMessage.toUID,
+                            status: parseMessage.status
+                        }
+                        console.log(lastMessage)
+                        await saveConversation(
+                            conversationId, saveData, lastMessage
+                        );
+                        console.log('Successfully saved message to db');
+                        break;
+                    case KAFKA_TOPICS.MESSAGE_STATUS:
+                        // toUID | conversationId | status
+                        updateStatus(parseMessage.conversationId, parseMessage.status);
+                        console.log('Successfully updated status in db');
+                        break;
+                    default:
+                        break;
                 }
-                await saveConversation(
-                    conversationId, saveData, lastMessage
-                );
-                console.log('Successfully saved message to db');
             } catch (error) {
-                console.log('Something went wrong while saving message to db ' + error.message);
+                console.log('Something went wrong while saving to db ' + error.message);
                 pause();
                 setTimeout(() => {
                     consumer.resume([{ topic: KAFKA_TOPICS.MESSAGES }]);
@@ -95,5 +132,6 @@ async function startMessageConsumer() {
 
 module.exports = {
     produceMessage,
-    startMessageConsumer
+    startMessageConsumer,
+    updateMessageStatus
 };
