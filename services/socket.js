@@ -56,11 +56,12 @@ class SocketSerice {
 
         const io = this.#io;
 
+        setInterval(() => {
+            this.#checkIfUserStillOnline();
+        }, 10000);
+
         console.log('Init socket listeners...');
         io.on(SOCKET_EVENTS.CONNECT, socket => {
-            setInterval(() => {
-                this.#checkIfUserStillOnline(socket);
-            }, 10000); //
             console.log('New socket connected', socket.id);
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
                 // uid | online
@@ -129,11 +130,11 @@ class SocketSerice {
         });
     }
 
-    async #checkIfUserStillOnline(socket) {
+    async #checkIfUserStillOnline() {
         for (const uid in this.#cacheStorage) {
             if (this.#cacheStorage[uid] === true) {
                 try {
-                    await socket.emitWithAck('hello' + uid, 'world');
+                    await this.#io.timeout(5000).emitWithAck('hello' + uid, 'world');
                     console.log('User still online');
                     continue;
                     // let the user remain online he is a good user he responds back
