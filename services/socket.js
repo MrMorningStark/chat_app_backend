@@ -58,8 +58,8 @@ class SocketSerice {
 
         console.log('Init socket listeners...');
         io.on(SOCKET_EVENTS.CONNECT, socket => {
+            this.#startUserOnlineCheck(socket);
             console.log('New socket connected', socket.id);
-
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
                 // uid | online
                 console.log(data.online ? 'online' : 'offline');
@@ -125,6 +125,31 @@ class SocketSerice {
                     break;
             }
         });
+    }
+
+    #startUserOnlineCheck(socket) {
+        setInterval(async () => {
+            await this.#checkIfUserStillOnline(socket);
+        }, 10000); // Check every 10 seconds
+    }
+
+    async #checkIfUserStillOnline(socket) {
+        for (const uid in this.#cacheStorage) {
+            if (this.#cacheStorage[uid] === true) {
+                try {
+                    await socket.emitWithAck('hello' + uid, 'world');
+                    console.log('User still online');
+                    continue;
+                    // let the user remain online he is a good user he responds back
+                } catch (error) {
+                    console.log('User went offline');
+                    this.#cacheStorage[uid] = false;
+                    // user went offline without disconnecting bad user make him go offline   
+                    await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify({ uid: uid, online: false }));
+                }
+            }
+
+        }
     }
 
     #isUserOnline(uid) {
