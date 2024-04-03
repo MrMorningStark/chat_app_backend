@@ -62,10 +62,9 @@ class SocketSerice {
 
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
                 // uid | online
-                console.log('online')
+                console.log(data.online ? 'online' : 'offline');
                 let status = {
                     uid: data.uid,
-                    socketID: socket.id,
                     online: data.online
                 }
                 await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
@@ -103,14 +102,12 @@ class SocketSerice {
                     break;
 
                 case REDIS_CHANNELS.USER_STATUS:
-                    // uid | socketID | online
+                    // uid | online
                     let data = await JSON.parse(message);
                     if (data.online) {
-                        this.#cacheStorage[data.uid] = data.socketID;
-                        this.#cacheStorage[data.socketID] = data.uid;
+                        this.#cacheStorage[data.uid] = true;
                     } else {
-                        delete this.#cacheStorage[data.uid];
-                        delete this.#cacheStorage[data.socketID];
+                        this.#cacheStorage[data.uid] = false;
                     }
                     console.log(this.#cacheStorage);
                     break;
