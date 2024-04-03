@@ -68,9 +68,7 @@ class SocketSerice {
                     socketID: socket.id,
                     online: data.online
                 }
-                if (data.online && !this.#isUserOnline(data.uid)) {
-                    await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
-                }
+                await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
             });
 
             socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
