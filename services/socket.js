@@ -61,14 +61,13 @@ class SocketSerice {
             console.log('New socket connected', socket.id);
 
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
-                // uid    
+                // uid | online
                 console.log('online')
                 let status = {
                     uid: data.uid,
                     socketID: socket.id,
-                    online: true
+                    online: data.online
                 }
-                this.#cacheStorage[socket.id] = data.uid
                 await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
             });
 
@@ -84,8 +83,6 @@ class SocketSerice {
             })
 
             socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
-                let uid = this.#cacheStorage[socket.id];
-                await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify({ uid: uid, socketID: socket.id, online: false }));
                 console.log('Socket disconnected', socket.id);
             });
 
