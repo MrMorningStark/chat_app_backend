@@ -146,6 +146,7 @@ class SocketSerice {
                     this.#cacheStorage[uid] = false;
                     // user went offline without disconnecting bad user make him go offline   
                     await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify({ uid: uid, online: false }));
+                    continue;
                 }
             }
 
