@@ -61,12 +61,14 @@ class SocketSerice {
             console.log('New socket connected', socket.id);
 
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
-                // uid | online    
+                // uid    
                 console.log('online')
                 let status = {
                     uid: data.uid,
-                    online: data.online,
+                    socketID: socket.id,
+                    online: true
                 }
+                this.#cacheStorage[socket.id] = data.uid
                 await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify(status));
             });
 
@@ -81,7 +83,9 @@ class SocketSerice {
                 await this.#pub.publish(REDIS_CHANNELS.MESSAGE_STATUS, JSON.stringify(data));
             })
 
-            socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+            socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
+                let uid = this.#cacheStorage[socket.id];
+                await this.#pub.publish(REDIS_CHANNELS.USER_STATUS, JSON.stringify({ uid: uid, socketID: socket.id, online: false }));
                 console.log('Socket disconnected', socket.id);
             });
 
@@ -93,18 +97,24 @@ class SocketSerice {
                 case REDIS_CHANNELS.MESSAGES:
                     // toUID | fromUID | message | createdAt | status
                     let parseMessage = await JSON.parse(message);
+                    io.emit(parseMessage.toUID, parseMessage);
                     if (this.#isUserOnline(parseMessage.toUID)) {
                         parseMessage.status = MessageStatus.delivered;
                         io.emit('statusUpdate-' + parseMessage.fromUID, { conversationId: generateConversationId(parseMessage.fromUID, parseMessage.toUID), status: MessageStatus.delivered });
                     }
-                    io.emit(parseMessage.toUID, parseMessage);
                     await produceMessage(JSON.stringify(parseMessage));
                     break;
 
                 case REDIS_CHANNELS.USER_STATUS:
-                    // uid | online
-                    let status = await JSON.parse(message);
-                    this.#cacheStorage[status.uid] = status.online;
+                    // uid | socketID | online
+                    let data = await JSON.parse(message);
+                    if (data.online) {
+                        this.#cacheStorage[data.uid] = data.socketID;
+                        this.#cacheStorage[data.socketID] = data.uid;
+                    } else {
+                        delete this.#cacheStorage[data.uid];
+                        delete this.#cacheStorage[data.socketID];
+                    }
                     console.log(this.#cacheStorage);
                     break;
 
