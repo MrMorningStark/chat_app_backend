@@ -58,7 +58,9 @@ class SocketSerice {
 
         console.log('Init socket listeners...');
         io.on(SOCKET_EVENTS.CONNECT, socket => {
-            this.#startUserOnlineCheck(socket);
+            setInterval(() => {
+                this.#checkIfUserStillOnline(socket);
+            }, 10000); //
             console.log('New socket connected', socket.id);
             socket.on(SOCKET_EVENTS.USER_STATUS, async (data) => {
                 // uid | online
@@ -125,12 +127,6 @@ class SocketSerice {
                     break;
             }
         });
-    }
-
-    #startUserOnlineCheck(socket) {
-        setInterval(async () => {
-            await this.#checkIfUserStillOnline(socket);
-        }, 10000); // Check every 10 seconds
     }
 
     async #checkIfUserStillOnline(socket) {
