@@ -128,7 +128,10 @@ class SocketSerice {
     }
 
     #isUserOnline(uid) {
-        return this.#cacheStorage[uid] !== undefined;
+        if (this.#cacheStorage[uid] === undefined) {
+            return false;
+        }
+        return this.#cacheStorage[uid];
     }
     get io() {
         return this.#io;
